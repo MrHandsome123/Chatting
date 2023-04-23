@@ -2,6 +2,9 @@ package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
 import javafx.application.Platform;
+import javafx.beans.Observable;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
@@ -12,26 +15,53 @@ import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 import javafx.util.Callback;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 import java.net.URL;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.ResourceBundle;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class Controller implements Initializable {
 
     @FXML
-    ListView<Message> chatContentList;
+    ListView<String> chatList;
+    ObservableList<String> chats;
 
+    @FXML
+    ListView<Message> chatContentList;
+    Map<String, ObservableList<Message>> contents;
+
+    @FXML
+    Label currentUsername;
     String username;
+
+    static final int port = 1234;
+    Socket socket;
+    BufferedReader in;
+    PrintWriter out;
+
+    public void connectToServer() {
+        try {
+            socket = new Socket("localhost", port);
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            out = new PrintWriter(socket.getOutputStream());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
+        connectToServer();
 
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
         dialog.setHeaderText(null);
         dialog.setContentText("Username:");
+
 
         Optional<String> input = dialog.showAndWait();
         if (input.isPresent() && !input.get().isEmpty()) {
@@ -39,12 +69,41 @@ public class Controller implements Initializable {
                TODO: Check if there is a user with the same name among the currently logged-in users,
                      if so, ask the user to change the username
              */
-            username = input.get();
+            try {
+                String command = "NewUser," + input.get();
+                out.println(command); // check if the name is duplicated from server, the command start with keyword "NewUser"
+                out.flush();
+
+                String response = in.readLine();
+                if(response.equals("Succeed")) {
+                    username = input.get();
+                    currentUsername.setText(username);
+                } else {
+                    command = "Exit"; // exit command
+                    System.out.println("User: " + username  +" have already logged in, exiting");
+                    out.println(command);
+                    out.flush();
+                    Platform.exit();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         } else {
             System.out.println("Invalid username " + input + ", exiting");
+            out.println("Exit");
+            out.flush();
             Platform.exit();
         }
 
+        ClientThread clientThread = new ClientThread(socket, this);
+        Thread thread = new Thread(clientThread);
+        thread.start();
+
+        chats = FXCollections.observableArrayList();
+        chatList.setItems(chats);
+        chatList.setCellFactory(new StringCellFactory());
+
+        contents = new HashMap<>();
         chatContentList.setCellFactory(new MessageCellFactory());
     }
 
@@ -55,8 +114,17 @@ public class Controller implements Initializable {
         Stage stage = new Stage();
         ComboBox<String> userSel = new ComboBox<>();
 
-        // FIXME: get the user list from server, the current user's name should be filtered out
-        userSel.getItems().addAll("Item 1", "Item 2", "Item 3");
+        // TODO: get the user list from server, the current user's name should be filtered out
+        try {
+            String command = "ShowAllUsers," + username;
+            out.println(command); // get all selectable users from server, the command starts with "ShowAllUsers"
+            out.flush();
+            String response = in.readLine();
+            String[] List = response.split(",");
+            userSel.getItems().addAll(List);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         Button okBtn = new Button("OK");
         okBtn.setOnAction(e -> {
@@ -73,6 +141,15 @@ public class Controller implements Initializable {
 
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
+        for(String friends : chats) {
+            if(friends.equals(user)) {
+                chatContentList.setItems(contents.get(user.get()));
+                return;
+            }
+        }
+        contents.put(user.get(), FXCollections.observableArrayList());
+        chatContentList.setItems(contents.get(user.get()));
+        chats.add(user.get());
     }
 
     /**
@@ -133,6 +210,32 @@ public class Controller implements Initializable {
                         wrapper.getChildren().addAll(nameLabel, msgLabel);
                         msgLabel.setPadding(new Insets(0, 0, 0, 20));
                     }
+
+                    setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+                    setGraphic(wrapper);
+                }
+            };
+        }
+    }
+
+    private class StringCellFactory implements Callback<ListView<String>, ListCell<String>> {
+        @Override
+        public ListCell<String> call(ListView<String> param) {
+            return new ListCell<String>() {
+
+                @Override
+                public void updateItem(String usr, boolean empty) {
+                    super.updateItem(usr, empty);
+                    if (empty || Objects.isNull(usr)) {
+                        return;
+                    }
+
+                    HBox wrapper = new HBox();
+                    Label nameLabel = new Label(usr);
+
+                    nameLabel.setPrefSize(50, 20);
+                    nameLabel.setWrapText(true);
+                    nameLabel.setStyle("-fx-border-color: black; -fx-border-width: 1px;");
 
                     setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
                     setGraphic(wrapper);
