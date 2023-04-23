@@ -9,19 +9,17 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 public class Server {
 
     static final int ServerPort = 1234;
-    List<String> userList;
     List<ChattingService> clientList;
+    Map<String, ChattingService> map;
 
     Server() {
-        userList = new ArrayList<>();
         clientList = new ArrayList<>();
+        map = new HashMap<>();
     }
 
     public static void main(String[] args) throws IOException {

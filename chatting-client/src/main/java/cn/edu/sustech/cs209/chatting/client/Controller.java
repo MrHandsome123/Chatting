@@ -3,6 +3,8 @@ package cn.edu.sustech.cs209.chatting.client;
 import cn.edu.sustech.cs209.chatting.common.Message;
 import javafx.application.Platform;
 import javafx.beans.Observable;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -12,6 +14,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.Callback;
 
@@ -24,30 +27,46 @@ import java.net.URL;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static java.lang.Math.min;
+
 public class Controller implements Initializable {
 
     @FXML
     ListView<String> chatList;
-    ObservableList<String> chats;
+    List<String> chats; // represents all the users in each room
+    ObservableList<String> roomTitles; // represents the title of each room
 
     @FXML
     ListView<Message> chatContentList;
-    Map<String, ObservableList<Message>> contents;
+    Map<String, List<Message>> contents;
 
     @FXML
     Label currentUsername;
     String username;
+    String currentRoom = null;
+
+    @FXML
+    Label currentOnlineCnt;
+    String onlineCnt;
+
+    @FXML
+    TextArea inputArea;
 
     static final int port = 1234;
     Socket socket;
-    BufferedReader in;
     PrintWriter out;
+
+    ClientThread clientThread;
+    Thread thread;
+
 
     public void connectToServer() {
         try {
             socket = new Socket("localhost", port);
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream());
+            clientThread = new ClientThread(socket, this);
+            thread = new Thread(clientThread);
+            thread.start();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -56,6 +75,7 @@ public class Controller implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         connectToServer();
+
 
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
@@ -69,39 +89,49 @@ public class Controller implements Initializable {
                TODO: Check if there is a user with the same name among the currently logged-in users,
                      if so, ask the user to change the username
              */
-            try {
-                String command = "NewUser," + input.get();
-                out.println(command); // check if the name is duplicated from server, the command start with keyword "NewUser"
-                out.flush();
+            String command = "NewUser," + input.get();
+            synchronized (clientThread) {
+                try {
+                    out.println(command); // check if the name is duplicated from server, the command start with keyword "NewUser"
+                    out.flush();
+                    clientThread.wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
 
-                String response = in.readLine();
-                if(response.equals("Succeed")) {
+            String response = clientThread.info;
+                if(response.contains("Succeed")) {
                     username = input.get();
                     currentUsername.setText(username);
+                    onlineCnt = response.substring(7);
+                    currentOnlineCnt.setText(onlineCnt);
                 } else {
                     command = "Exit"; // exit command
                     System.out.println("User: " + username  +" have already logged in, exiting");
                     out.println(command);
                     out.flush();
-                    Platform.exit();
+
+                    //Platform.exit();
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         } else {
             System.out.println("Invalid username " + input + ", exiting");
             out.println("Exit");
             out.flush();
-            Platform.exit();
+            //Platform.exit();
         }
 
-        ClientThread clientThread = new ClientThread(socket, this);
-        Thread thread = new Thread(clientThread);
-        thread.start();
-
-        chats = FXCollections.observableArrayList();
-        chatList.setItems(chats);
-        chatList.setCellFactory(new StringCellFactory());
+        chats = new ArrayList<>();
+        roomTitles = FXCollections.observableArrayList();
+        //chatList.setItems(roomTitles);
+        chatList.setOnMouseClicked(mouseEvent -> {
+            int i = chatList.getSelectionModel().getSelectedIndex();
+            if(i <= chats.size()) {
+                currentRoom = chats.get(i);
+                chatContentList.getItems().clear();
+                chatContentList.getItems().setAll(contents.get(currentRoom));
+            }
+        });
 
         contents = new HashMap<>();
         chatContentList.setCellFactory(new MessageCellFactory());
@@ -109,22 +139,27 @@ public class Controller implements Initializable {
 
     @FXML
     public void createPrivateChat() {
+
         AtomicReference<String> user = new AtomicReference<>();
 
         Stage stage = new Stage();
         ComboBox<String> userSel = new ComboBox<>();
 
         // TODO: get the user list from server, the current user's name should be filtered out
-        try {
-            String command = "ShowAllUsers," + username;
-            out.println(command); // get all selectable users from server, the command starts with "ShowAllUsers"
-            out.flush();
-            String response = in.readLine();
-            String[] List = response.split(",");
-            userSel.getItems().addAll(List);
-        } catch (IOException e) {
-            e.printStackTrace();
+        String command = "ShowAllUsers," + username;
+        synchronized (clientThread) {
+            try{
+                out.println(command); // get all selectable users from server, the command starts with "ShowAllUsers"
+                out.flush();
+                clientThread.wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
+
+        String response = clientThread.info;
+        String[] List = response.split(",");
+        userSel.getItems().addAll(List);
 
         Button okBtn = new Button("OK");
         okBtn.setOnAction(e -> {
@@ -142,14 +177,26 @@ public class Controller implements Initializable {
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
         for(String friends : chats) {
-            if(friends.equals(user)) {
-                chatContentList.setItems(contents.get(user.get()));
+            if(friends.equals(user.get())) {
+                // set chatting window to the existing private room
+                chatContentList.getItems().clear();
+                chatContentList.getItems().addAll(contents.get(user.get()));
+                currentRoom = user.get();
                 return;
             }
         }
+
+        // set chatting window to the new private room
         contents.put(user.get(), FXCollections.observableArrayList());
-        chatContentList.setItems(contents.get(user.get()));
+        chatContentList.getItems().clear();
+        chatContentList.getItems().addAll(contents.get(user.get()));
+        currentRoom = user.get();
+
+        // the title of private room is the name of the selected user
         chats.add(user.get());
+        roomTitles.add(user.get());
+        chatList.getItems().clear();
+        chatList.getItems().addAll(roomTitles);
     }
 
     /**
@@ -164,6 +211,77 @@ public class Controller implements Initializable {
      */
     @FXML
     public void createGroupChat() {
+        AtomicReference<String> user = new AtomicReference<>();
+        Stage stage = new Stage();
+        CheckBox[] usrSel = new CheckBox[10];
+        VBox vBox = new VBox(20);
+
+        String command = "ShowAllUsers," + username;
+        synchronized (clientThread) {
+            try{
+                out.println(command); // get all selectable users from server, the command starts with "ShowAllUsers"
+                out.flush();
+                clientThread.wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        String response = clientThread.info;
+        String[] List = response.split(",");
+        for(int i = 0; i < List.length; i ++) {
+            usrSel[i] = new CheckBox(List[i]);
+            vBox.getChildren().add(usrSel[i]);
+        }
+
+        Button okBtn = new Button("OK");
+        okBtn.setOnAction(e -> {
+            user.set(getSelectedUsers(usrSel));
+            stage.close();
+        });
+
+        vBox.setAlignment(Pos.CENTER);
+        vBox.setPadding(new Insets(20, 20, 20, 20));
+        vBox.getChildren().add(okBtn);
+        stage.setScene(new Scene(vBox));
+        stage.showAndWait();
+
+        for(String friends : chats) {
+            if(friends.equals(user.get())) {
+                // set chatting window to existing room
+                chatContentList.getItems().clear();
+                chatContentList.getItems().addAll(contents.get(user.get()));
+                currentRoom = user.get();
+                return;
+            }
+        }
+        // set chatting window to new room
+        contents.put(user.get(), FXCollections.observableArrayList());
+        chatContentList.getItems().clear();
+        chatContentList.getItems().addAll(contents.get(user.get()));
+        currentRoom = user.get();
+
+        // title of room is the first three members in the room
+        String[] members = user.get().split(",");
+        int len = members.length;
+        String title = "";
+        for(int i = 0; i < min(len, 3); i ++) {
+            title += members[i] + ",";
+        }
+        title = title.substring(0, title.length() - 1) + "(" + String.valueOf(len) + ")";
+        chats.add(user.get());
+        roomTitles.add(title);
+        chatList.getItems().clear();
+        chatList.getItems().addAll(roomTitles);
+    }
+
+    String getSelectedUsers(CheckBox[] usrSel) {
+        String[] selectedUsers = Arrays.stream(usrSel).filter(u -> u != null && u.isSelected()).map(u -> u.getText()).sorted((u1, u2) -> u1.compareTo(u2)).toArray(String[]::new);
+        String ret = "";
+        for(String u : selectedUsers) {
+            ret += u + ",";
+        }
+        return ret.substring(0, ret.length() - 1);
     }
 
     /**
@@ -175,6 +293,29 @@ public class Controller implements Initializable {
     @FXML
     public void doSendMessage() {
         // TODO
+        // Privat Message like "Message,userA,uerB,content"
+        // Room Message like "Message,userA,"userB,userC,...",content"
+        String command = "Message" + "," + username + ",";
+        if(currentRoom.contains(",")){
+            command += "\"" + currentRoom + "\"" + ",";
+        }else{
+            command += currentRoom + ",";
+        }
+        String content = inputArea.getText();
+        inputArea.clear();
+        command += "\"" + content + "\"" + ",";
+        Long timestamp = System.currentTimeMillis();
+        command += timestamp;
+        Message message = new Message(timestamp, username, currentRoom, content);
+        contents.get(currentRoom).add(message);
+        chatContentList.getItems().clear();
+        chatContentList.getItems().addAll(contents.get(currentRoom));
+
+        synchronized (clientThread) {
+            out.println(command);
+            out.flush();
+        }
+
     }
 
     /**
@@ -190,6 +331,8 @@ public class Controller implements Initializable {
                 public void updateItem(Message msg, boolean empty) {
                     super.updateItem(msg, empty);
                     if (empty || Objects.isNull(msg)) {
+                        setText(null);
+                        setGraphic(null);
                         return;
                     }
 
@@ -210,32 +353,6 @@ public class Controller implements Initializable {
                         wrapper.getChildren().addAll(nameLabel, msgLabel);
                         msgLabel.setPadding(new Insets(0, 0, 0, 20));
                     }
-
-                    setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-                    setGraphic(wrapper);
-                }
-            };
-        }
-    }
-
-    private class StringCellFactory implements Callback<ListView<String>, ListCell<String>> {
-        @Override
-        public ListCell<String> call(ListView<String> param) {
-            return new ListCell<String>() {
-
-                @Override
-                public void updateItem(String usr, boolean empty) {
-                    super.updateItem(usr, empty);
-                    if (empty || Objects.isNull(usr)) {
-                        return;
-                    }
-
-                    HBox wrapper = new HBox();
-                    Label nameLabel = new Label(usr);
-
-                    nameLabel.setPrefSize(50, 20);
-                    nameLabel.setWrapText(true);
-                    nameLabel.setStyle("-fx-border-color: black; -fx-border-width: 1px;");
 
                     setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
                     setGraphic(wrapper);
