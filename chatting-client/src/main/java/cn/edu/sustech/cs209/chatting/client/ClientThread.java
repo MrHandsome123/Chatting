@@ -103,8 +103,7 @@ public class ClientThread implements Runnable{
                     }
                 }
             } catch(IOException ioe) {
-                //e.printStackTrace();
-                //System.out.println();
+                ioe.printStackTrace();
             } catch(IllegalStateException ile) {
                 System.out.println("New Message!");
             }

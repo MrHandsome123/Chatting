@@ -95,7 +95,7 @@ public class ChattingService implements Runnable{
                     }
                 }
             } catch (IOException ioe){
-                ioe.printStackTrace();
+                System.out.println(currentUser + " has logged out");
                 break;
             }
         }
