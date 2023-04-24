@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.charset.StandardCharsets;
 
 import static java.lang.Math.min;
 
@@ -24,7 +25,7 @@ public class ClientThread implements Runnable{
     ClientThread(Socket socket, Controller controller) throws IOException {
         this.socket = socket;
         this.controller = controller;
-        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
     }
 
     @Override
@@ -70,9 +71,13 @@ public class ClientThread implements Runnable{
                             controller.contents.put(sendTo, FXCollections.observableArrayList());
                         }
                         controller.contents.get(sendTo).add(message);
-                        controller.chatContentList.getItems().clear();
-                        controller.chatContentList.getItems().addAll(controller.contents.get(sendTo));
-                        controller.currentRoom = sendTo;
+                        String finalSendTo = sendTo;
+                        Platform.runLater(() -> {
+                            controller.chatContentList.getItems().clear();
+                            controller.chatContentList.getItems().addAll(controller.contents.get(finalSendTo));
+                            controller.currentRoom = finalSendTo;
+                        });
+
 
                         if(!controller.chats.contains(sendTo)) {
                             controller.chats.add(sendTo);
@@ -85,8 +90,10 @@ public class ClientThread implements Runnable{
                             if(len > 1) title = title.substring(0, title.length() - 1) + "(" + String.valueOf(len) + ")";
                             else title = title.substring(0, title.length() - 1);
                             controller.roomTitles.add(title);
-                            controller.chatList.getItems().clear();
-                            controller.chatList.getItems().addAll(controller.roomTitles);
+                            Platform.runLater(() -> {
+                                controller.chatList.getItems().clear();
+                                controller.chatList.getItems().addAll(controller.roomTitles);
+                            });
                         }
 
                     }

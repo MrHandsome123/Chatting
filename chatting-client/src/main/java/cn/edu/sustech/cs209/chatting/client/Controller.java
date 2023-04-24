@@ -18,12 +18,10 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.Callback;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -67,7 +65,7 @@ public class Controller implements Initializable {
     public void connectToServer() {
         try {
             socket = new Socket("localhost", port);
-            out = new PrintWriter(socket.getOutputStream());
+            out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8)) ;
             clientThread = new ClientThread(socket, this);
             thread = new Thread(clientThread);
             thread.start();
@@ -80,7 +78,7 @@ public class Controller implements Initializable {
     public void initialize(URL url, ResourceBundle resourceBundle) {
         connectToServer();
 
-  //      System.setProperty("file.encoding", "UTF-8");
+        System.setProperty("file.encoding", "UTF-8");
 
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
