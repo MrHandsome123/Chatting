@@ -30,33 +30,33 @@ public class ClientThread implements Runnable{
 
     @Override
     public void run() {
-        try{
-            try{
+        try {
+            try {
                 doService();
-            } finally {
+            }finally {
                 in.close();
                 socket.close();
             }
-        } catch (IOException e) {
+        }catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     public void doService() {
         while (true) {
-            try{
+            try {
                 info = in.readLine();
-                if(info != null) {
+                if (info != null) {
                     synchronized (this) {
                         notify();
                     }
                     String[] s = info.split(",(?=([^\\\"]*\\\"[^\\\"]*\\\")*[^\\\"]*$)",-1);
-                    if(s[0].equals("Message")) {
+                    if (s[0].equals("Message")) {
                         // Privat Message like "Message,userA,uerB,content,timestamp"
                         // Room Message like "Message,userA,"userB,userC,...",content,timestamp"
                         String sendFrom = s[1];
                         String sendTo = s[2];
-                        if(sendTo.charAt(0) == '"'){
+                        if (sendTo.charAt(0) == '"'){
                             sendTo = sendTo.substring(1, sendTo.length() - 1);
                         }
                         String content = s[3].substring(1, s[3].length() - 1);
@@ -64,10 +64,10 @@ public class ClientThread implements Runnable{
                         Message message = new Message(timestamp, sendFrom, sendTo, content);
 
                         // private chat, the room name for receiver should reverse
-                        if(!sendTo.contains(",")) {
+                        if (!sendTo.contains(",")) {
                             sendTo = sendFrom;
                         }
-                        if(!controller.contents.containsKey(sendTo)) {
+                        if (!controller.contents.containsKey(sendTo)) {
                             controller.contents.put(sendTo, FXCollections.observableArrayList());
                         }
                         controller.contents.get(sendTo).add(message);
@@ -79,7 +79,7 @@ public class ClientThread implements Runnable{
                         });
 
 
-                        if(!controller.chats.contains(sendTo)) {
+                        if (!controller.chats.contains(sendTo)) {
                             controller.chats.add(sendTo);
                             String[] members = sendTo.split(",");
                             int len = members.length;
@@ -87,7 +87,7 @@ public class ClientThread implements Runnable{
                             for(int i = 0; i < min(len, 3); i ++) {
                                 title += members[i] + ",";
                             }
-                            if(len > 1) title = title.substring(0, title.length() - 1) + "(" + String.valueOf(len) + ")";
+                            if (len > 1) title = title.substring(0, title.length() - 1) + "(" + String.valueOf(len) + ")";
                             else title = title.substring(0, title.length() - 1);
                             controller.roomTitles.add(title);
                             Platform.runLater(() -> {
@@ -97,14 +97,14 @@ public class ClientThread implements Runnable{
                         }
 
                     }
-                    else if(s[0].equals("LogOut")) {
+                    else if (s[0].equals("LogOut")) {
                         String logOutUser = s[1];
                         System.out.println(logOutUser + " leaves");
                     }
                 }
-            } catch(IOException ioe) {
+            }catch (IOException ioe) {
                 System.out.println("Sever Disconnect");
-            } catch(IllegalStateException ile) {
+            }catch (IllegalStateException ile) {
                 System.out.println("New Message!");
             }
         }

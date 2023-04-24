@@ -29,7 +29,7 @@ public class Server {
         System.out.println("Starting server");
         System.out.println("Waiting for Clients to connect...");
 
-        while(true) {
+        while (true) {
             Socket socket = serverSocket.accept();
             System.out.println("Client connected");
             ChattingService service = new ChattingService(socket, server);

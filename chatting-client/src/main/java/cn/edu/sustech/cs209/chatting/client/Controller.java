@@ -65,7 +65,8 @@ public class Controller implements Initializable {
     public void connectToServer() {
         try {
             socket = new Socket("localhost", port);
-            out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8)) ;
+            out = new PrintWriter(
+                    new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8)) ;
             clientThread = new ClientThread(socket, this);
             thread = new Thread(clientThread);
             thread.start();
@@ -104,15 +105,15 @@ public class Controller implements Initializable {
             }
 
             String response = clientThread.info;
-                if(response.contains("Succeed")) {
+                if (response.contains("Succeed")) {
                     username = input.get();
                     currentUsername.setText(username);
                     onlineCnt = response.substring(7);
                     currentOnlineCnt.setText(onlineCnt);
-                } else {
+                }else {
                     command = "Exit"; // exit command
                     username = input.get();
-                    System.out.println("User: " + username  +" have already logged in, exiting");
+                    System.out.println("User: " + username  + " have already logged in, exiting");
                     out.println(command);
                     out.flush();
 
@@ -145,7 +146,7 @@ public class Controller implements Initializable {
         //chatList.setItems(roomTitles);
         chatList.setOnMouseClicked(mouseEvent -> {
             int i = chatList.getSelectionModel().getSelectedIndex();
-            if(i <= chats.size() && i >= 0) {
+            if (i <= chats.size() && i >= 0) {
                 currentRoom = chats.get(i);
                 chatContentList.getItems().clear();
                 chatContentList.getItems().setAll(contents.get(currentRoom));
@@ -181,11 +182,11 @@ public class Controller implements Initializable {
         // TODO: get the user list from server, the current user's name should be filtered out
         String command = "ShowAllUsers," + username;
         synchronized (clientThread) {
-            try{
+            try {
                 out.println(command); // get all selectable users from server, the command starts with "ShowAllUsers"
                 out.flush();
                 clientThread.wait();
-            } catch (InterruptedException e) {
+            }catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
@@ -207,10 +208,8 @@ public class Controller implements Initializable {
         stage.setScene(new Scene(box));
         stage.showAndWait();
 
-        // TODO: if the current user already chatted with the selected user, just open the chat with that user
-        // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
-        for(String friends : chats) {
-            if(friends.equals(user.get())) {
+        for (String friends : chats) {
+            if (friends.equals(user.get())) {
                 // set chatting window to the existing private room
                 chatContentList.getItems().clear();
                 chatContentList.getItems().addAll(contents.get(user.get()));
@@ -262,7 +261,7 @@ public class Controller implements Initializable {
 
         String response = clientThread.info;
         String[] List = response.split(",");
-        for(int i = 0; i < List.length; i ++) {
+        for (int i = 0; i < List.length; i ++) {
             usrSel[i] = new CheckBox(List[i]);
             vBox.getChildren().add(usrSel[i]);
         }
@@ -279,8 +278,8 @@ public class Controller implements Initializable {
         stage.setScene(new Scene(vBox));
         stage.showAndWait();
 
-        for(String friends : chats) {
-            if(friends.equals(user.get())) {
+        for (String friends : chats) {
+            if (friends.equals(user.get())) {
                 // set chatting window to existing room
                 chatContentList.getItems().clear();
                 chatContentList.getItems().addAll(contents.get(user.get()));
@@ -298,7 +297,7 @@ public class Controller implements Initializable {
         String[] members = user.get().split(",");
         int len = members.length;
         String title = "";
-        for(int i = 0; i < min(len, 3); i ++) {
+        for (int i = 0; i < min(len, 3); i++) {
             title += members[i] + ",";
         }
         title = title.substring(0, title.length() - 1) + "(" + String.valueOf(len) + ")";
@@ -309,9 +308,12 @@ public class Controller implements Initializable {
     }
 
     String getSelectedUsers(CheckBox[] usrSel) {
-        String[] selectedUsers = Arrays.stream(usrSel).filter(u -> u != null && u.isSelected()).map(u -> u.getText()).sorted((u1, u2) -> u1.compareTo(u2)).toArray(String[]::new);
+        String[] selectedUsers = Arrays.stream(usrSel)
+                .filter(u -> u != null && u.isSelected()).map(u -> u.getText())
+                .sorted((u1, u2) -> u1.compareTo(u2))
+                .toArray(String[]::new);
         String ret = "";
-        for(String u : selectedUsers) {
+        for (String u : selectedUsers) {
             ret += u + ",";
         }
         return ret.substring(0, ret.length() - 1);
@@ -329,9 +331,9 @@ public class Controller implements Initializable {
         // Privat Message like "Message,userA,uerB,content"
         // Room Message like "Message,userA,"userB,userC,...",content"
         String command = "Message" + "," + username + ",";
-        if(currentRoom.contains(",")){
+        if (currentRoom.contains(",")){
             command += "\"" + currentRoom + "\"" + ",";
-        }else{
+        }else {
             command += currentRoom + ",";
         }
         String content = inputArea.getText();
