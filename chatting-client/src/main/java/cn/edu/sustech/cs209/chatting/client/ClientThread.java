@@ -97,13 +97,13 @@ public class ClientThread implements Runnable{
                         }
 
                     }
-                    else if(s[0].equals("Exit")) {
-                        Platform.exit();
-                        break;
+                    else if(s[0].equals("LogOut")) {
+                        String logOutUser = s[1];
+                        System.out.println(logOutUser + " leaves");
                     }
                 }
             } catch(IOException ioe) {
-                ioe.printStackTrace();
+                System.out.println("Sever Disconnect");
             } catch(IllegalStateException ile) {
                 System.out.println("New Message!");
             }

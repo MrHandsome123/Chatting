@@ -29,6 +29,16 @@ public class ChattingService implements Runnable{
                 out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8)) ;
                 doService();
             } finally {
+                if(server.clientList.contains(this)){
+                    server.clientList.remove(this);
+                }
+                // notify all users when logging out
+                for(ChattingService cs : server.clientList) {
+                    synchronized (cs) {
+                        cs.out.println("LogOut," + currentUser);
+                        cs.out.flush();
+                    }
+                }
                 in.close();
                 out.close();
                 socket.close();
@@ -77,6 +87,9 @@ public class ChattingService implements Runnable{
                             String[] destinations = sendTo.split(",");
                             for(String destination : destinations) {
                                 if (destination.equals(currentUser)) {
+                                    continue;
+                                }
+                                if(server.clientList.stream().noneMatch(client -> client.currentUser.equals(s[1]))) {
                                     continue;
                                 }
                                 synchronized (server.map.get(destination)) {

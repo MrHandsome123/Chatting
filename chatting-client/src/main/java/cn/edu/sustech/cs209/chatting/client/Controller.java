@@ -116,13 +116,28 @@ public class Controller implements Initializable {
                     out.println(command);
                     out.flush();
 
-                    //Platform.exit();
+                    try {
+                        thread.stop();
+                        out.close();
+                        socket.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    Platform.exit();
                 }
         } else {
             System.out.println("Invalid username " + input + ", exiting");
             out.println("Exit");
             out.flush();
-            //Platform.exit();
+
+            try {
+                thread.stop();
+                out.close();
+                socket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            Platform.exit();
         }
 
         chats = new ArrayList<>();
