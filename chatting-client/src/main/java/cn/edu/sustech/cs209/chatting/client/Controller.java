@@ -28,6 +28,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.lang.Math.min;
+import static java.net.IDN.toUnicode;
 
 public class Controller implements Initializable {
 
@@ -51,6 +52,9 @@ public class Controller implements Initializable {
 
     @FXML
     TextArea inputArea;
+
+    @FXML
+    VBox emoticonBar;
 
     static final int port = 1234;
     Socket socket;
@@ -76,6 +80,7 @@ public class Controller implements Initializable {
     public void initialize(URL url, ResourceBundle resourceBundle) {
         connectToServer();
 
+  //      System.setProperty("file.encoding", "UTF-8");
 
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
@@ -108,6 +113,7 @@ public class Controller implements Initializable {
                     currentOnlineCnt.setText(onlineCnt);
                 } else {
                     command = "Exit"; // exit command
+                    username = input.get();
                     System.out.println("User: " + username  +" have already logged in, exiting");
                     out.println(command);
                     out.flush();
@@ -126,7 +132,7 @@ public class Controller implements Initializable {
         //chatList.setItems(roomTitles);
         chatList.setOnMouseClicked(mouseEvent -> {
             int i = chatList.getSelectionModel().getSelectedIndex();
-            if(i <= chats.size()) {
+            if(i <= chats.size() && i >= 0) {
                 currentRoom = chats.get(i);
                 chatContentList.getItems().clear();
                 chatContentList.getItems().setAll(contents.get(currentRoom));
@@ -135,6 +141,20 @@ public class Controller implements Initializable {
 
         contents = new HashMap<>();
         chatContentList.setCellFactory(new MessageCellFactory());
+
+        Button button1 = new Button("\uD83D\uDE00");
+        button1.setOnAction(actionEvent -> {
+            inputArea.appendText(toUnicode("\uD83D\uDE00"));
+        });
+        Button button2 = new Button("\uD83D\uDE04");
+        button2.setOnAction(actionEvent -> {
+            inputArea.appendText(toUnicode("\uD83D\uDE04"));
+        });
+        Button button3 = new Button("\uD83D\uDE0A");
+        button3.setOnAction(actionEvent -> {
+            inputArea.appendText(toUnicode("\uD83D\uDE0A"));
+        });
+        emoticonBar.getChildren().addAll(button1, button2, button3);
     }
 
     @FXML
@@ -317,6 +337,8 @@ public class Controller implements Initializable {
         }
 
     }
+
+
 
     /**
      * You may change the cell factory if you changed the design of {@code Message} model.
