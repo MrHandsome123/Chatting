@@ -16,10 +16,12 @@ public class Server {
     static final int ServerPort = 1234;
     List<ChattingService> clientList;
     Map<String, ChattingService> map;
+    List<String> history;
 
     Server() {
         clientList = new ArrayList<>();
         map = new HashMap<>();
+        history = new ArrayList<>();
     }
 
     public static void main(String[] args) throws IOException {

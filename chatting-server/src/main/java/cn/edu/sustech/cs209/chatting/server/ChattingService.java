@@ -59,9 +59,28 @@ public class ChattingService implements Runnable{
                             if (server.clientList.stream().noneMatch(client -> client.currentUser.equals(s[1]))) {
                                 currentUser = s[1];
                                 server.clientList.add(this);
-                                server.map.put(s[1], this);
+                                //server.map.put(s[1], this);
                                 out.println("Succeed" + server.clientList.size());
                                 out.flush();
+
+                                // notify all users when logging in
+                                for (ChattingService cs : server.clientList) {
+                                    synchronized (cs) {
+                                        cs.out.println("LogIn," + currentUser);
+                                        cs.out.flush();
+                                    }
+                                }
+
+                                if (server.map.containsKey(s[1])) {
+                                    for (String his : server.history) {
+                                        String[] h = his.split(",(?=([^\\\"]*\\\"[^\\\"]*\\\")*[^\\\"]*$)",-1);
+                                        if (h[1].contains(currentUser) || h[2].contains(currentUser)) {
+                                            out.println(his);
+                                            out.flush();
+                                        }
+                                    }
+                                }
+                                server.map.put(s[1], this);
                             }else {
                                 out.println("Fail");
                                 out.flush();
@@ -80,6 +99,7 @@ public class ChattingService implements Runnable{
                         case "Message" :
                             // Privat Message like "Message,userA,uerB,content,timestamp"
                             // Room Message like "Message,userA,"userB,userC,...",content,timestamp"
+                            server.history.add(command);
                             String sendTo = s[2];
                             if (sendTo.charAt(0) == '"') {
                                 sendTo = sendTo.substring(1, sendTo.length() - 1);

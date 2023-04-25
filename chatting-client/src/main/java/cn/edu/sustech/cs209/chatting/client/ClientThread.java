@@ -64,7 +64,7 @@ public class ClientThread implements Runnable{
                         Message message = new Message(timestamp, sendFrom, sendTo, content);
 
                         // private chat, the room name for receiver should reverse
-                        if (!sendTo.contains(",")) {
+                        if (!sendTo.contains(",") && !sendFrom.equals(controller.username)) {
                             sendTo = sendFrom;
                         }
                         if (!controller.contents.containsKey(sendTo)) {
@@ -101,9 +101,14 @@ public class ClientThread implements Runnable{
                         String logOutUser = s[1];
                         System.out.println(logOutUser + " leaves");
                     }
+                    else if (s[0].equals("LogIn")) {
+                        String logInUser = s[1];
+                        System.out.println(logInUser + " online");
+                    }
                 }
             }catch (IOException ioe) {
                 System.out.println("Sever Disconnect");
+                break;
             }catch (IllegalStateException ile) {
                 System.out.println("New Message!");
             }
